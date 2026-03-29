@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hello Sunshine</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            transition: background-image 0.5s ease-in-out;
+            overflow: hidden;
+        }
+
+        .quote-container {
+            max-width: 800px;
+            width: 90%;
+            padding: 3rem;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            backdrop-filter: blur(10px);
+            animation: fadeIn 0.8s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .quote-text {
+            font-size: 1.8rem;
+            line-height: 1.6;
+            color: #2d3748;
+            margin-bottom: 1.5rem;
+            font-weight: 300;
+            position: relative;
+        }
+
+        .quote-text::before {
+            content: '"';
+            font-size: 4rem;
+            color: #667eea;
+            position: absolute;
+            top: -20px;
+            left: -10px;
+            opacity: 0.3;
+        }
+
+        .quote-author {
+            font-size: 1.2rem;
+            color: #718096;
+            font-style: italic;
+            font-weight: 500;
+        }
+
+        .quote-author::before {
+            content: '— ';
+        }
+
+        .loading {
+            font-size: 1.2rem;
+            color: #4a5568;
+        }
+
+        /* 响应式设计 - 平板 */
+        @media (max-width: 768px) {
+            .quote-container {
+                padding: 2rem;
+                width: 85%;
+            }
+
+            .quote-text {
+                font-size: 1.5rem;
+            }
+
+            .quote-author {
+                font-size: 1rem;
+            }
+        }
+
+        /* 响应式设计 - 手机 */
+        @media (max-width: 480px) {
+            .quote-container {
+                padding: 1.5rem;
+                width: 90%;
+                border-radius: 15px;
+            }
+
+            .quote-text {
+                font-size: 1.2rem;
+                line-height: 1.5;
+            }
+
+            .quote-text::before {
+                font-size: 3rem;
+                top: -15px;
+                left: -5px;
+            }
+
+            .quote-author {
+                font-size: 0.9rem;
+            }
+        }
+
+        /* 横屏适配 */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .quote-container {
+                padding: 1.5rem;
+                max-width: 600px;
+            }
+
+            .quote-text {
+                font-size: 1.3rem;
+                margin-bottom: 1rem;
+            }
+
+            .quote-author {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="quote-container">
+        <div class="quote-text loading">加载中...</div>
+        <div class="quote-author"></div>
+    </div>
+
+    <script>
+        // Background Image Manager
+        class BackgroundManager {
+            constructor() {
+                // Multiple image sources for better reliability
+                this.imageSources = [
+                    'https://source.unsplash.com/random/1920x1080/?nature,landscape',
+                    'https://picsum.photos/1920/1080',
+                    'https://source.unsplash.com/random/1920x1080/?sky,mountain',
+                    'https://loremflickr.com/1920/1080/nature,landscape'
+                ];
+                this.timeout = 8000; // 8 second timeout
+                this.currentSourceIndex = 0;
+            }
+
+            async fetchRandomImage() {
+                console.log('Fetching random background image...');
+                
+                // Try each image source until one succeeds
+                for (let i = 0; i < this.imageSources.length; i++) {
+                    const sourceIndex = (this.currentSourceIndex + i) % this.imageSources.length;
+                    const imageUrl = `${this.imageSources[sourceIndex]}?t=${Date.now()}`;
+                    
+                    console.log(`→ Trying image source ${i + 1}/${this.imageSources.length}...`);
+                    
+                    try {
+                        await this.preloadImageWithTimeout(imageUrl, this.timeout);
+                        this.setBackgroundImage(imageUrl);
+                        this.currentSourceIndex = (sourceIndex + 1) % this.imageSources.length;
+                        console.log('✓ Background image loaded successfully');
+                        return;
+                    } catch (error) {
+                        console.warn(`✗ Image source ${i + 1} failed: ${error.message}`);
+                        // Continue to next source
+                    }
+                }
+                
+                // All sources failed
+                console.warn('✗ All image sources failed');
+                this.handleImageError(new Error('All image sources failed'));
+            }
+
+            preloadImageWithTimeout(url, timeout) {
+                return new Promise((resolve, reject) => {
+                    const img = new Image();
+                    
+                    // Set up timeout
+                    const timeoutId = setTimeout(() => {
+                        img.src = ''; // Cancel image loading
+                        reject(new Error(`Timeout after ${timeout}ms`));
+                    }, timeout);
+                    
+                    img.onload = () => {
+                        clearTimeout(timeoutId);
+                        resolve(url);
+                    };
+                    
+                    img.onerror = () => {
+                        clearTimeout(timeoutId);
+                        reject(new Error('Failed to load'));
+                    };
+                    
+                    img.src = url;
+                });
+            }
+
+            setBackgroundImage(imageUrl) {
+                document.body.style.backgroundImage = `url('${imageUrl}')`;
+            }
+
+            handleImageError(error) {
+                // Fallback to gradient background (already set in CSS)
+                console.log('→ Using fallback gradient background');
+                console.log('→ Error details:', error.message);
+                document.body.style.backgroundImage = 'none';
+            }
+        }
+
+        // Quote Display Manager
+        class QuoteManager {
+            constructor() {
+                this.favqsApiUrl = 'https://favqs.com/api/qotd';
+                this.timeout = 5000; // 5 second timeout
+                this.fallbackQuotes = [
+                    {
+                        body: 'The only way to do great work is to love what you do.',
+                        author: 'Steve Jobs'
+                    },
+                    {
+                        body: 'Innovation distinguishes between a leader and a follower.',
+                        author: 'Steve Jobs'
+                    },
+                    {
+                        body: 'Believe you can and you\'re halfway there.',
+                        author: 'Theodore Roosevelt'
+                    },
+                    {
+                        body: 'Success is not final, failure is not fatal: it is the courage to continue that counts.',
+                        author: 'Winston Churchill'
+                    },
+                    {
+                        body: 'The future belongs to those who believe in the beauty of their dreams.',
+                        author: 'Eleanor Roosevelt'
+                    }
+                ];
+            }
+
+            async fetchQuoteOfTheDay() {
+                console.log('Fetching quote of the day from FavQs API...');
+                
+                try {
+                    // Use JSONP to bypass CORS restrictions
+                    const quote = await this.fetchWithJSONP();
+                    
+                    if (quote) {
+                        console.log('✓ Quote fetched successfully from FavQs API');
+                        console.log('→ Quote:', quote.body.substring(0, 50) + '...');
+                        console.log('→ Author:', quote.author);
+                        return quote;
+                    } else {
+                        throw new Error('JSONP returned no data');
+                    }
+                } catch (error) {
+                    console.warn(`✗ FavQs API Error: ${error.message}`);
+                    return this.handleQuoteError();
+                }
+            }
+
+            fetchWithJSONP() {
+                return new Promise((resolve, reject) => {
+                    // Create unique callback name
+                    const callbackName = 'favqsCallback_' + Date.now();
+                    
+                    // Set timeout
+                    const timeoutId = setTimeout(() => {
+                        cleanup();
+                        reject(new Error(`Request timeout after ${this.timeout}ms`));
+                    }, this.timeout);
+                    
+                    // Define global callback function
+                    window[callbackName] = (data) => {
+                        cleanup();
+                        if (data && data.quote) {
+                            resolve({
+                                body: data.quote.body,
+                                author: data.quote.author
+                            });
+                        } else {
+                            reject(new Error('Invalid response format'));
+                        }
+                    };
+                    
+                    // Cleanup function
+                    const cleanup = () => {
+                        clearTimeout(timeoutId);
+                        delete window[callbackName];
+                        if (script.parentNode) {
+                            script.parentNode.removeChild(script);
+                        }
+                    };
+                    
+                    // Create script element for JSONP
+                    const script = document.createElement('script');
+                    script.src = `${this.favqsApiUrl}?callback=${callbackName}`;
+                    script.onerror = () => {
+                        cleanup();
+                        reject(new Error('Script loading failed'));
+                    };
+                    
+                    // Add script to document
+                    document.head.appendChild(script);
+                });
+            }
+
+            displayQuote(quoteData) {
+                console.log('Displaying quote on page...');
+                
+                const quoteTextElement = document.querySelector('.quote-text');
+                const quoteAuthorElement = document.querySelector('.quote-author');
+
+                if (quoteTextElement && quoteAuthorElement) {
+                    quoteTextElement.textContent = quoteData.body;
+                    quoteTextElement.classList.remove('loading');
+                    quoteAuthorElement.textContent = quoteData.author;
+                    console.log('✓ Quote displayed successfully');
+                } else {
+                    console.error('✗ Quote display elements not found in DOM');
+                }
+            }
+
+            handleQuoteError(error) {
+                // Return a random fallback quote
+                const randomIndex = Math.floor(Math.random() * this.fallbackQuotes.length);
+                const fallbackQuote = this.fallbackQuotes[randomIndex];
+                console.log('→ Using fallback quote:', fallbackQuote.body.substring(0, 50) + '...');
+                console.log('→ Fallback author:', fallbackQuote.author);
+                return fallbackQuote;
+            }
+        }
+
+        // Main Application Controller
+        class AppController {
+            constructor() {
+                this.backgroundManager = new BackgroundManager();
+                this.quoteManager = new QuoteManager();
+            }
+
+            async initialize() {
+                console.log('═══════════════════════════════════════════════════');
+                console.log('Initializing Random Quote Background Page...');
+                console.log('═══════════════════════════════════════════════════');
+                
+                const startTime = performance.now();
+                
+                try {
+                    // Parallel API calls for better performance
+                    const results = await Promise.allSettled([
+                        this.backgroundManager.fetchRandomImage(),
+                        this.loadAndDisplayQuote()
+                    ]);
+                    
+                    // Log results of parallel operations
+                    this.logInitializationResults(results);
+                    
+                    const endTime = performance.now();
+                    const loadTime = (endTime - startTime).toFixed(2);
+                    
+                    console.log('═══════════════════════════════════════════════════');
+                    console.log(`✓ Page initialization complete in ${loadTime}ms`);
+                    console.log('═══════════════════════════════════════════════════');
+                } catch (error) {
+                    console.error('✗ Critical error during page initialization:', error);
+                    console.error('→ Error stack:', error.stack);
+                    
+                    // Ensure graceful degradation - page should still be usable
+                    console.log('→ Page will continue with fallback content');
+                }
+            }
+
+            async loadAndDisplayQuote() {
+                try {
+                    const quoteData = await this.quoteManager.fetchQuoteOfTheDay();
+                    this.quoteManager.displayQuote(quoteData);
+                } catch (error) {
+                    console.error('✗ Error loading and displaying quote:', error.message);
+                    throw error; // Re-throw to be caught by Promise.allSettled
+                }
+            }
+
+            logInitializationResults(results) {
+                console.log('\n--- Initialization Results ---');
+                
+                results.forEach((result, index) => {
+                    const operationName = index === 0 ? 'Background Image' : 'Quote Display';
+                    
+                    if (result.status === 'fulfilled') {
+                        console.log(`✓ ${operationName}: Success`);
+                    } else {
+                        console.warn(`✗ ${operationName}: Failed`);
+                        console.warn(`  → Reason: ${result.reason}`);
+                    }
+                });
+                
+                console.log('------------------------------\n');
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            const app = new AppController();
+            await app.initialize();
+        });
+    </script>
+</body>
+</html>
